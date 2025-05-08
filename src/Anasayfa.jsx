@@ -1,3 +1,4 @@
+//Uygulamadaki sayfların belirlendiği dosya. Yani rotalar.
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import SayfaYok from "./sayfalar/hatalar/SayfaYok";
