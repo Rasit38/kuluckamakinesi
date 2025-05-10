@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from 'react'
 import supabase from '../utils/supabase'
 import { MqttContext } from '../MqttContext'
+import { LoaderCircle } from 'lucide-react';
 
 function Detaylar() {
   const { mqttClient, isMqttConnected } = useContext(MqttContext);
@@ -15,8 +16,6 @@ function Detaylar() {
 
     mqttClient.subscribe("kuluckamakinesikontrolpaneli/sensor");
 
-    detaylariCek();
-
     mqttClient.on("message", (topic, message) => {
       console.log("Mesaj:", message.toString());
 
@@ -27,14 +26,23 @@ function Detaylar() {
       }
     });
 
+    detaylariCek();
+
+    mqttClient.publish("kuluckamakinesikontrolpaneli/sensoristek", JSON.stringify({}));
+
+    const interval = setInterval(() => {
+      mqttClient.publish("kuluckamakinesikontrolpaneli/sensoristek", JSON.stringify({}));
+    }, 10000);
+
     return () => {
+      clearInterval(interval);
       mqttClient.unsubscribe("kuluckamakinesikontrolpaneli/sensor");
       mqttClient.removeAllListeners("message");
     };
   }, [mqttClient, isMqttConnected]);
 
-  let [sicaklik, setSicaklik] = useState(25)
-  let [nem, setNem] = useState(72)
+  let [sicaklik, setSicaklik] = useState()
+  let [nem, setNem] = useState()
   let [gun, setGun] = useState()
   let [maksGun, setMaksGun] = useState()
   let [hayvan, setHayvan] = useState()
@@ -79,13 +87,7 @@ function Detaylar() {
   }
 
   async function detaylariCek() {
-    mqttClient.publish("kuluckamakinesikontrolpaneli/sensoristek", JSON.stringify({}));
-
-    setInterval(() => {
-      mqttClient.publish("kuluckamakinesikontrolpaneli/sensoristek", JSON.stringify({}));
-    }, 10000),
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const { data: detaylar } = await supabase.from('detaylar').select().eq('id', 1).single()
 
@@ -93,7 +95,15 @@ function Detaylar() {
 
     setCalisiyor(detaylar.calismaDurumu)
     setHayvan(detaylar.hayvan)
-    setGun(detaylar.gun)
+
+    if (detaylar.calismaDurumu) {
+      const gecenZaman = Date.now() - new Date(detaylar.baslangicZamani).getTime()
+      const gecenGun = Math.floor(gecenZaman / (1000 * 60 * 60 * 24))
+      setGun(gecenGun)
+    } else {
+      setGun(0)
+    }
+
 
     setLoading(false)
   }
@@ -144,46 +154,16 @@ function Detaylar() {
                 <span class="font-bold whitespace-nowrap">
                   📅 Gün:
                 </span>&nbsp;{gun}/{maksGun}
-                {/* {
-                  !calisiyor ?
-                    <button
-                      class="absolute bottom-2 right-2 border rounded-lg border-green-900 bg-green-500 text-white px-2 py-0.5 text-xl"
-                      onClick={async () => {
-                        const { error } = await supabase.from('detaylar').update({
-                          calismaDurumu: true
-                        }).eq('id', 1)
-                        if (!error) {
-                          setCalisiyor(true)
-                        }
-                      }}
-                    >Başlat</button>
-                    :
-                    <button
-                      class="absolute bottom-2 right-2 border rounded-lg border-red-900 bg-red-500 text-white px-2 py-0.5 text-xl"
-                      onClick={async () => {
-                        const { error } = await supabase.from('detaylar').update({
-                          calismaDurumu: false,
-                          gun: 0,
-                          hayvan: "tavuk"
-                        }).eq('id', 1)
-                        if (!error) {
-                          setCalisiyor(false)
-                          setGun(0)
-                          setHayvan("tavuk")
-                        }
-                      }}
-                    >Sıfırla</button>
-                } */}
               </span>
 
               <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl">
                 <span class="font-bold">🌡️ Sıcaklık:
-                </span>  {sicaklik}°
+                </span>  {sicaklik == undefined ? <LoaderCircle class="animate-spin inline" /> : sicaklik + "°C"}
               </span>
               <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl">
                 <span class="font-bold">
                   💧 Nem:
-                </span> %{nem}
+                </span>  {nem == undefined ? <LoaderCircle class="animate-spin inline" /> : "%" + nem}
               </span>
 
               <span class="w-full h-60 flex justify-center pt-8">
@@ -197,7 +177,8 @@ function Detaylar() {
                       class="border rounded-lg border-green-900 bg-green-500 text-white px-3 py-2 text-2xl w-full"
                       onClick={async () => {
                         const { error } = await supabase.from('detaylar').update({
-                          calismaDurumu: true
+                          calismaDurumu: true,
+                          baslangicZamani: new Date().toISOString()
                         }).eq('id', 1)
                         if (!error) {
                           setCalisiyor(true)
@@ -210,7 +191,7 @@ function Detaylar() {
                       onClick={async () => {
                         const { error } = await supabase.from('detaylar').update({
                           calismaDurumu: false,
-                          gun: 0,
+                          baslangicZamani: null,
                           hayvan: "tavuk"
                         }).eq('id', 1)
                         if (!error) {
