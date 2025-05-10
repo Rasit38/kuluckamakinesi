@@ -9,7 +9,7 @@ export const MqttProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        const mqttClient = mqtt.connect("ws://broker.hivemq.com:8000/mqtt");
+        const mqttClient = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
         setClient(mqttClient);
 
