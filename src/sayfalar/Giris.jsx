@@ -1,5 +1,5 @@
 import { House, NotebookPen, Settings, User } from "lucide-react"
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function Giris() {
 
@@ -7,6 +7,34 @@ function Giris() {
     const sifreRef = useRef();
 
     const [hata, setHata] = useState(null);
+
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.key === 'Enter') {
+                if (!kullaniciRef.current || !sifreRef.current) return
+                if (kullaniciRef.current.value === "Admin" && sifreRef.current.value === "muhammed38") {
+                    localStorage.setItem("giris", new Date().getTime())
+
+                    window.location.href = "/"
+                } else {
+                    setHata("Kullanıcı adı veya şifre yanlış")
+
+                    kullaniciRef.current.value = ""
+                    sifreRef.current.value = ""
+
+                    setTimeout(() => {
+                        setHata(null)
+                    }, 2000)
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
 
     return (
         <>
@@ -26,7 +54,7 @@ function Giris() {
                         class="border rounded-lg border-blue-900 bg-blue-500 text-white px-3 py-2 text-2xl w-full"
                         onClick={() => {
                             if (!kullaniciRef.current || !sifreRef.current) return
-                            if (kullaniciRef.current.value === "rasit" && sifreRef.current.value === "muhammed38") {
+                            if (kullaniciRef.current.value === "Admin" && sifreRef.current.value === "muhammed38") {
                                 localStorage.setItem("giris", new Date().getTime())
 
                                 window.location.href = "/"
