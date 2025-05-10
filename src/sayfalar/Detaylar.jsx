@@ -1,7 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import supabase from '../utils/supabase'
+import { MqttContext } from '../MqttContext'
 
 function Detaylar() {
+  const { mqttClient, isMqttConnected } = useContext(MqttContext);
+
+  useEffect(() => {
+    if (!mqttClient || !isMqttConnected) {
+      console.log("MQTT client hazır değil, bekleniyor...");
+      return;
+    }
+
+    console.log("MQTT client bağlı, subscribe ediliyor...");
+
+    mqttClient.subscribe("kuluckamakinesikontrolpaneli/sensor");
+
+    detaylariCek();
+
+    mqttClient.on("message", (topic, message) => {
+      console.log("Mesaj:", message.toString());
+
+      if (topic === "kuluckamakinesikontrolpaneli/sensor") {
+        const mesaj = JSON.parse(message);
+        if (mesaj?.sicaklik !== undefined) setSicaklik(mesaj.sicaklik);
+        if (mesaj?.nem !== undefined) setNem(mesaj.nem);
+      }
+    });
+
+    return () => {
+      mqttClient.unsubscribe("kuluckamakinesikontrolpaneli/sensor");
+      mqttClient.removeAllListeners("message");
+    };
+  }, [mqttClient, isMqttConnected]);
+
   let [sicaklik, setSicaklik] = useState(25)
   let [nem, setNem] = useState(72)
   let [gun, setGun] = useState()
@@ -48,7 +79,13 @@ function Detaylar() {
   }
 
   async function detaylariCek() {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    mqttClient.publish("kuluckamakinesikontrolpaneli/sensoristek", JSON.stringify({}));
+
+    setInterval(() => {
+      mqttClient.publish("kuluckamakinesikontrolpaneli/sensoristek", JSON.stringify({}));
+    }, 10000),
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
     const { data: detaylar } = await supabase.from('detaylar').select().eq('id', 1).single()
 
@@ -60,10 +97,6 @@ function Detaylar() {
 
     setLoading(false)
   }
-
-  useEffect(() => {
-    detaylariCek()
-  }, [])
 
   useEffect(() => {
     if (hayvan == "tavuk" || hayvan == "hindi" || hayvan == "kaz" || hayvan == "ordek" || hayvan == "bildircin") {
@@ -111,7 +144,7 @@ function Detaylar() {
                 <span class="font-bold whitespace-nowrap">
                   📅 Gün:
                 </span>&nbsp;{gun}/{maksGun}
-                {
+                {/* {
                   !calisiyor ?
                     <button
                       class="absolute bottom-2 right-2 border rounded-lg border-green-900 bg-green-500 text-white px-2 py-0.5 text-xl"
@@ -140,7 +173,7 @@ function Detaylar() {
                         }
                       }}
                     >Sıfırla</button>
-                }
+                } */}
               </span>
 
               <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl">
@@ -156,8 +189,42 @@ function Detaylar() {
               <span class="w-full h-60 flex justify-center pt-8">
                 <img src={resimHesapla()} class="h-full"></img>
               </span>
+
+              <span class="mb-8 w-full">
+                {
+                  !calisiyor ?
+                    <button
+                      class="border rounded-lg border-green-900 bg-green-500 text-white px-3 py-2 text-2xl w-full"
+                      onClick={async () => {
+                        const { error } = await supabase.from('detaylar').update({
+                          calismaDurumu: true
+                        }).eq('id', 1)
+                        if (!error) {
+                          setCalisiyor(true)
+                        }
+                      }}
+                    >Başlat</button>
+                    :
+                    <button
+                      class="border rounded-lg border-red-900 bg-red-500 text-white px-3 py-2 text-2xl  w-full"
+                      onClick={async () => {
+                        const { error } = await supabase.from('detaylar').update({
+                          calismaDurumu: false,
+                          gun: 0,
+                          hayvan: "tavuk"
+                        }).eq('id', 1)
+                        if (!error) {
+                          setCalisiyor(false)
+                          setGun(0)
+                          setHayvan("tavuk")
+                        }
+                      }}
+                    >Sıfırla</button>
+                }
+
+              </span>
             </div >
-          </div>
+          </div >
       }
     </>
   )

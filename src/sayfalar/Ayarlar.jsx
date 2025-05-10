@@ -1,8 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import supabase from '../utils/supabase'
 import { Settings } from 'lucide-react'
+import { MqttContext } from '../MqttContext';
 
 function Ayarlar() {
+  const { mqttClient, isMqttConnected } = useContext(MqttContext);
+
+  useEffect(() => {
+    if (!mqttClient || !isMqttConnected) {
+      console.log("MQTT client hazır değil, bekleniyor...");
+      return;
+    }
+
+    mqttClient.on("message", (topic, message) => {
+      console.log("Mesaj:", message.toString());
+    });
+
+    return () => {
+      mqttClient.removeAllListeners("message");
+    };
+  }, [mqttClient, isMqttConnected]);
+
   let [seciliMod, setSeciliMod] = useState(0) // 0 oto, 1 manuel
   let [fanHizi, setFanHizi] = useState(0.5)
   let [ampulDurum, setAmpulDurum] = useState(true)
@@ -25,6 +43,13 @@ function Ayarlar() {
     })).eq('id', 1)
 
     setKaydedildi(!error)
+
+    mqttClient.publish("kuluckamakinesikontrolpaneli/ayarlar", JSON.stringify({
+      mod: seciliMod,
+      ampul: ampulDurum,
+      fan: fanDurum,
+      fanHizi: fanHizi
+    }));
 
     setTimeout(() => {
       setKaydedildi(null)
