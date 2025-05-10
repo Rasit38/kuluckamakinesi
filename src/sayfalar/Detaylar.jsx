@@ -44,6 +44,7 @@ function Detaylar() {
   let [sicaklik, setSicaklik] = useState()
   let [nem, setNem] = useState()
   let [gun, setGun] = useState()
+  let [baslangicZamani, setBaslangicZamani] = useState()
   let [maksGun, setMaksGun] = useState()
   let [hayvan, setHayvan] = useState()
   let [calisiyor, setCalisiyor] = useState(false)
@@ -104,8 +105,9 @@ function Detaylar() {
 
   // Check if current day is in exit period (last cikisGunu days)
   function isExitPeriod() {
-    return hayvan && hayvanBilgiler[hayvan] &&
-      gun > (hayvanBilgiler[hayvan].gun - hayvanBilgiler[hayvan].cikisGunu);
+    if (baslangicZamani == undefined || !calisiyor) return false
+    const exitDay = baslangicZamani + (maksGun - hayvanBilgiler[hayvan].cikisGunu) * 86400000
+    return new Date().getTime() >= exitDay
   }
 
   // Calculate image based on incubation progress
@@ -140,10 +142,11 @@ function Detaylar() {
       const gecenZaman = Date.now() - new Date(detaylar.baslangicZamani).getTime()
       const gecenGun = Math.floor(gecenZaman / (1000 * 60 * 60 * 24))
       setGun(gecenGun)
+      setBaslangicZamani(new Date(detaylar.baslangicZamani).getTime())
     } else {
       setGun(0)
+      setBaslangicZamani(null)
     }
-
 
     setLoading(false)
   }
@@ -190,58 +193,90 @@ function Detaylar() {
                 </select>
               </span>
 
-              <span class="relative flex flex-row bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl">
-                <span class="font-bold whitespace-nowrap">
-                  📅 Gün:
-                </span>&nbsp;{gun}/{maksGun}
+              <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl flex flex-col md:flex-row">
+                <div class="flex flex-row items-center">
+                  <span class="font-bold whitespace-nowrap">
+                    📅 Gün:
+                  </span>
+                  <span class="ml-2">{gun}/{maksGun}</span>
+                </div>
+                {hayvan && hayvanBilgiler[hayvan] && calisiyor && (
+                  <div class="mt-2 md:mt-0 md:ml-auto">
+                    {isExitPeriod() ? (
+                      <span class="bg-purple-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">çıkış süreci</span>
+                    ) : (
+                      <span class="bg-green-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">yetişme süreci</span>
+                    )}
+                  </div>
+                )}
               </span>
 
-              <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl flex flex-row">
-                <span class="font-bold whitespace-nowrap">
-                  🌡️ Sıcaklık:
-                </span>
-                {sicaklik == undefined ? <LoaderCircle class="animate-spin inline ml-2" /> :
-                  <span class="ml-2 flex flex-row w-full">
-                    {sicaklik}°C
-                    {hayvan && hayvanBilgiler[hayvan] && (
-                      // Use exit temperature values if in exit period, otherwise use ideal values
-                      (isExitPeriod() ?
-                        (sicaklik >= (hayvanBilgiler[hayvan].idealCikisSicaklik - hayvanBilgiler[hayvan].sicaklikSapma) &&
-                          sicaklik <= (hayvanBilgiler[hayvan].idealCikisSicaklik + hayvanBilgiler[hayvan].sicaklikSapma))
-                        :
-                        (sicaklik >= (hayvanBilgiler[hayvan].idealSicaklik - hayvanBilgiler[hayvan].sicaklikSapma) &&
-                          sicaklik <= (hayvanBilgiler[hayvan].idealSicaklik + hayvanBilgiler[hayvan].sicaklikSapma))) ?
-                        <span class="ml-auto bg-blue-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">ideal</span>
-                        : sicaklik < (hayvanBilgiler[hayvan].idealSicaklik - hayvanBilgiler[hayvan].sicaklikSapma) ?
-                          <span class="ml-auto bg-red-500 shadow-lg text-white text-sm py-1 px-1.5 rounded-lg">sıcaklık düşük</span>
-                          :
-                          <span class="ml-auto bg-red-500 text-white text-sm py-1.5 px-2 rounded-lg">sıcaklık yüksek</span>
-                    )}
+              <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl flex flex-col md:flex-row">
+                <div class="flex flex-row items-center">
+                  <span class="font-bold whitespace-nowrap">
+                    🌡️ Sıcaklık:
                   </span>
-                }
+                  {sicaklik == undefined ? <LoaderCircle class="animate-spin ml-2" /> :
+                    <span class="ml-2">{sicaklik}°C</span>
+                  }
+                </div>
+                {sicaklik !== undefined && hayvan && hayvanBilgiler[hayvan] && (
+                  <div class="mt-2 md:mt-0 md:ml-auto">
+                    {isExitPeriod() ? (
+                      sicaklik >= (hayvanBilgiler[hayvan].idealCikisSicaklik - hayvanBilgiler[hayvan].sicaklikSapma) &&
+                        sicaklik <= (hayvanBilgiler[hayvan].idealCikisSicaklik + hayvanBilgiler[hayvan].sicaklikSapma) ? (
+                        <span class="bg-blue-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">ideal</span>
+                      ) : sicaklik < (hayvanBilgiler[hayvan].idealCikisSicaklik - hayvanBilgiler[hayvan].sicaklikSapma) ? (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1 px-1.5 rounded-lg">sıcaklık düşük</span>
+                      ) : (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">sıcaklık yüksek</span>
+                      )
+                    ) : (
+                      sicaklik >= (hayvanBilgiler[hayvan].idealSicaklik - hayvanBilgiler[hayvan].sicaklikSapma) &&
+                        sicaklik <= (hayvanBilgiler[hayvan].idealSicaklik + hayvanBilgiler[hayvan].sicaklikSapma) ? (
+                        <span class="bg-blue-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">ideal</span>
+                      ) : sicaklik < (hayvanBilgiler[hayvan].idealSicaklik - hayvanBilgiler[hayvan].sicaklikSapma) ? (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1 px-1.5 rounded-lg">sıcaklık düşük</span>
+                      ) : (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">sıcaklık yüksek</span>
+                      )
+                    )}
+                  </div>
+                )}
               </span>
-              <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl flex flex-row">
-                <span class="font-bold whitespace-nowrap">
-                  💧 Nem:
-                </span>  {nem == undefined ? <LoaderCircle class="animate-spin inline" /> :
-                  <span class="ml-2 flex flex-row w-full">
-                    %{nem}
-                    {hayvan && hayvanBilgiler[hayvan] && (
-                      // Use exit humidity values if in exit period, otherwise use ideal values
-                      (isExitPeriod() ?
-                        (nem >= (hayvanBilgiler[hayvan].idealCikisNem - hayvanBilgiler[hayvan].nemSapma) &&
-                          nem <= (hayvanBilgiler[hayvan].idealCikisNem + hayvanBilgiler[hayvan].nemSapma))
-                        :
-                        (nem >= (hayvanBilgiler[hayvan].idealNem - hayvanBilgiler[hayvan].nemSapma) &&
-                          nem <= (hayvanBilgiler[hayvan].idealNem + hayvanBilgiler[hayvan].nemSapma))) ?
-                        <span class="ml-auto bg-blue-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">nem oranı normal</span>
-                        : nem < (hayvanBilgiler[hayvan].idealNem - hayvanBilgiler[hayvan].nemSapma) ?
-                          <span class="ml-auto bg-red-500 shadow-lg text-white text-sm py-1 px-1.5 rounded-lg">nem oranı düşük, su ekleyin</span>
-                          :
-                          <span class="ml-auto bg-red-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">nem oranı yükselmiş, kapağı açın</span>
-                    )}
+
+              <span class="bg-gray-100 border rounded-xl border-gray-300 p-6 w-full text-2xl flex flex-col md:flex-row">
+                <div class="flex flex-row items-center">
+                  <span class="font-bold whitespace-nowrap">
+                    💧 Nem:
                   </span>
-                }
+                  {nem == undefined ? <LoaderCircle class="animate-spin ml-2" /> :
+                    <span class="ml-2">%{nem}</span>
+                  }
+                </div>
+                {nem !== undefined && hayvan && hayvanBilgiler[hayvan] && (
+                  <div class="mt-2 md:mt-0 md:ml-auto">
+                    {isExitPeriod() ? (
+                      nem >= (hayvanBilgiler[hayvan].idealCikisNem - hayvanBilgiler[hayvan].nemSapma) &&
+                        nem <= (hayvanBilgiler[hayvan].idealCikisNem + hayvanBilgiler[hayvan].nemSapma) ? (
+                        <span class="bg-blue-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">nem oranı normal</span>
+                      ) : nem < (hayvanBilgiler[hayvan].idealCikisNem - hayvanBilgiler[hayvan].nemSapma) ? (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1 px-1.5 rounded-lg">nem oranı düşük, su ekleyin</span>
+                      ) : (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">nem oranı yüksek, kapağı açın</span>
+                      )
+                    ) : (
+                      nem >= (hayvanBilgiler[hayvan].idealNem - hayvanBilgiler[hayvan].nemSapma) &&
+                        nem <= (hayvanBilgiler[hayvan].idealNem + hayvanBilgiler[hayvan].nemSapma) ? (
+                        <span class="bg-blue-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">nem oranı normal</span>
+                      ) : nem < (hayvanBilgiler[hayvan].idealNem - hayvanBilgiler[hayvan].nemSapma) ? (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1 px-1.5 rounded-lg">nem oranı düşük, su ekleyin</span>
+                      ) : (
+                        <span class="bg-red-500 shadow-lg text-white text-sm py-1.5 px-2 rounded-lg">nem oranı yüksek, kapağı açın</span>
+                      )
+                    )}
+                  </div>
+                )}
               </span>
 
               <span class="w-full h-60 flex justify-center pt-8">
@@ -265,7 +300,7 @@ function Detaylar() {
                     >Başlat</button>
                     :
                     <button
-                      class="border rounded-lg border-red-900 bg-red-500 text-white px-3 py-2 text-2xl  w-full"
+                      class="border rounded-lg border-red-900 bg-red-500 text-white px-3 py-2 text-2xl w-full"
                       onClick={async () => {
                         const { error } = await supabase.from('detaylar').update({
                           calismaDurumu: false,
@@ -275,15 +310,15 @@ function Detaylar() {
                         if (!error) {
                           setCalisiyor(false)
                           setGun(0)
+                          setBaslangicZamani(null)
                           setHayvan("tavuk")
                         }
                       }}
                     >Sıfırla</button>
                 }
-
               </span>
-            </div >
-          </div >
+            </div>
+          </div>
       }
     </>
   )
